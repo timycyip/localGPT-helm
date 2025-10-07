@@ -1,0 +1,147 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      tag_suffix:
+        description: 'Optional tag suffix (e.g., "test", "staging")'
+        required: false
+        default: ''
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  build-and-push:
+    name: Build and Push Multi-Platform Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - name: frontend
+            dockerfile: Dockerfile.frontend
+            context: .
+          - name: backend
+            dockerfile: Dockerfile.backend
+            context: .
+          - name: rag-api
+            dockerfile: Dockerfile.rag-api
+            context: .
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/localgpt-${{ matrix.service.name }}
+          tags: |
+            # Latest tag for main branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # PR number tag
+            type=ref,event=pr,prefix=pr-
+            # Branch name tag
+            type=ref,event=branch
+            # Git SHA tag (short)
+            type=sha,prefix=sha-,format=short
+            # Git SHA tag (long)
+            type=sha,prefix=sha-,format=long
+            # Timestamp tag for manual runs
+            type=raw,value={{date 'YYYYMMDD-HHmmss'}},enable=${{ github.event_name == 'workflow_dispatch' }}
+            # Custom tag suffix if provided
+            type=raw,value=${{ github.event.inputs.tag_suffix }},enable=${{ github.event.inputs.tag_suffix != '' }}
+          labels: |
+            org.opencontainers.image.title=LocalGPT ${{ matrix.service.name }}
+            org.opencontainers.image.description=LocalGPT RAG System - ${{ matrix.service.name }} service
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+          provenance: false
+      
+      - name: Generate build summary
+        run: |
+          echo "## 🐳 Docker Image Built: ${{ matrix.service.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service:** \`${{ matrix.service.name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms:** \`linux/amd64\`, \`linux/arm64\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🏷️ Tags" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.IMAGE_PREFIX }}/localgpt-${{ matrix.service.name }}:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  summary:
+    name: Build Summary
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Generate final summary
+        run: |
+          echo "# 🎉 LocalGPT Docker Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🚀 Quick Start" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "# Pull all images" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.IMAGE_PREFIX }}/localgpt-frontend:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.IMAGE_PREFIX }}/localgpt-backend:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.IMAGE_PREFIX }}/localgpt-rag-api:latest" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Or use docker-compose with GHCR images" >> $GITHUB_STEP_SUMMARY
+          echo "docker compose -f docker-compose.ghcr.yml up -d" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Available Images" >> $GITHUB_STEP_SUMMARY
+          echo "View packages at: https://github.com/${{ github.repository_owner }}?tab=packages&repo_name=${{ github.event.repository.name }}" >> $GITHUB_STEP_SUMMARY

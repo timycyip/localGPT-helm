@@ -4,7 +4,28 @@ This guide covers running LocalGPT using Docker containers with local Ollama for
 
 ## 🚀 Quick Start
 
-### Complete Setup (5 Minutes)
+### Option 1: Pre-built Images (Fastest - 2 Minutes)
+```bash
+# 1. Install Ollama locally
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# 2. Start Ollama server
+ollama serve
+
+# 3. Install required models (in another terminal)
+ollama pull qwen3:0.6b
+ollama pull qwen3:8b
+
+# 4. Clone and start LocalGPT with pre-built images
+git clone https://github.com/timycyip/localGPT-helm.git
+cd localGPT-helm
+docker compose -f docker-compose.ghcr.yml up -d
+
+# 5. Access the application
+open http://localhost:3000
+```
+
+### Option 2: Build Locally (5 Minutes)
 ```bash
 # 1. Install Ollama locally
 curl -fsSL https://ollama.ai/install.sh | sh
@@ -17,8 +38,8 @@ ollama pull qwen3:0.6b
 ollama pull qwen3:8b
 
 # 4. Clone and start LocalGPT
-git clone https://github.com/your-org/rag-system.git
-cd rag-system
+git clone https://github.com/timycyip/localGPT-helm.git
+cd localGPT-helm
 ./start-docker.sh
 
 # 5. Access the application
@@ -337,4 +358,4 @@ Your Docker deployment is successful when:
 
 ---
 
-**Happy Dockerizing! 🐳** Need help? Check the troubleshooting guide or open an issue. 
+**Happy Dockerizing! 🐳** Need help? Check the troubleshooting guide or open an issue.
