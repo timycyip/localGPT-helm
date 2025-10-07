@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "localgpt.fullname" . }}-config
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+data:
+  # Ollama configuration
+  OLLAMA_HOST: {{ include "localgpt.ollamaHost" . | quote }}
+  
+  # RAG API configuration
+  RAG_API_URL: {{ printf "http://%s-rag-api:%d" (include "localgpt.fullname" .) (int .Values.ragApi.service.port) | quote }}
+  
+  # Backend API configuration
+  BACKEND_API_URL: {{ printf "http://%s-backend:%d" (include "localgpt.fullname" .) (int .Values.backend.service.port) | quote }}
+  
+  # Frontend configuration
+  NEXT_PUBLIC_API_URL: {{ printf "http://%s-backend:%d" (include "localgpt.fullname" .) (int .Values.backend.service.port) | quote }}
+  
+  # Environment
+  NODE_ENV: {{ .Values.ragApi.env.NODE_ENV | quote }}

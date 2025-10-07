@@ -1,0 +1,209 @@
+# Default values for localgpt
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Default image pull policy
+  imagePullPolicy: Always
+  # Image pull secrets for private registries
+  imagePullSecrets: []
+  # Global storage class (can be overridden per volume)
+  storageClass: ""
+
+# Ollama configuration
+ollama:
+  # Enable/disable Ollama deployment in this chart
+  enabled: true
+  
+  # External Ollama configuration (when ollama.enabled is false)
+  external:
+    enabled: false
+    # Full URL or service name for external Ollama
+    # Examples:
+    # - Same namespace: "http://ollama-service:11434"
+    # - Different namespace: "http://ollama-service.ollama-namespace.svc.cluster.local:11434"
+    # - External host: "http://external-host:11434"
+    host: "http://ollama-service:11434"
+    # Kubernetes namespace (if different from release namespace)
+    namespace: ""
+  
+  image:
+    registry: ""
+    repository: ollama/ollama
+    tag: "latest"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 11434
+    annotations: {}
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+  
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 20Gi
+    # existingClaim: ""
+  
+  env:
+    OLLAMA_HOST: "0.0.0.0"
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# RAG API service configuration
+ragApi:
+  replicaCount: 1
+  
+  image:
+    registry: ""
+    repository: localgpt/rag-api
+    tag: "latest"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 8001
+    annotations: {}
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 500m
+      memory: 2Gi
+  
+  persistence:
+    lancedb:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 10Gi
+    indexStore:
+      enabled: true
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 5Gi
+  
+  env:
+    NODE_ENV: "production"
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Backend service configuration
+backend:
+  replicaCount: 1
+  
+  image:
+    registry: ""
+    repository: localgpt/backend
+    tag: "latest"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations: {}
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 1Gi
+  
+  persistence:
+    enabled: true
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 2Gi
+  
+  env:
+    NODE_ENV: "production"
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Frontend service configuration
+frontend:
+  replicaCount: 1
+  
+  image:
+    registry: ""
+    repository: localgpt/frontend
+    tag: "latest"
+    pullPolicy: Always
+  
+  service:
+    type: ClusterIP
+    port: 3000
+    annotations: {}
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  
+  env:
+    NODE_ENV: "production"
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Shared uploads storage
+sharedUploads:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteMany
+  size: 5Gi
+  # existingClaim: ""
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "traefik"
+  annotations:
+    cert-manager.io/cluster-issuer: "cloudflare"
+    # traefik.ingress.kubernetes.io/router.middlewares: "kube-system-ipallowlist@kubernetescrd"
+  hosts:
+    - host: localgpt.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 3000
+  tls:
+    - secretName: localgpt-tls
+      hosts:
+        - localgpt.example.com
+
+# Health check configuration
+healthCheck:
+  # Initial delay before starting health checks
+  initialDelaySeconds: 30
+  # How often to perform the probe
+  periodSeconds: 30
+  # Number of seconds after which the probe times out
+  timeoutSeconds: 10
+  # Minimum consecutive successes for the probe to be considered successful
+  successThreshold: 1
+  # Minimum consecutive failures for the probe to be considered failed
+  failureThreshold: 3

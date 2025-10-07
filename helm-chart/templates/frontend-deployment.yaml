@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "localgpt.fullname" . }}-frontend
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "localgpt.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "localgpt.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - name: wait-for-backend
+        image: busybox:latest
+        command: ['sh', '-c', 'until nc -z {{ include "localgpt.fullname" . }}-backend {{ .Values.backend.service.port }}; do echo waiting for backend; sleep 2; done;']
+      containers:
+      - name: frontend
+        image: {{ include "localgpt.image" .Values.frontend.image }}
+        imagePullPolicy: {{ include "localgpt.imagePullPolicy" .Values.frontend.image }}
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: {{ .Values.frontend.env.NODE_ENV | quote }}
+        - name: NEXT_PUBLIC_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "localgpt.fullname" . }}-config
+              key: NEXT_PUBLIC_API_URL
+        {{- range $key, $value := .Values.frontend.env }}
+        {{- if and (ne $key "NODE_ENV") (ne $key "NEXT_PUBLIC_API_URL") }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        resources:
+          {{- toYaml .Values.frontend.resources | nindent 10 }}
+      {{- with .Values.frontend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.frontend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

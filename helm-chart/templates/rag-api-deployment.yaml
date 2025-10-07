@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "localgpt.fullname" . }}-rag-api
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-api
+spec:
+  replicas: {{ .Values.ragApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "localgpt.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rag-api
+  template:
+    metadata:
+      labels:
+        {{- include "localgpt.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rag-api
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.ollama.enabled }}
+      initContainers:
+      - name: wait-for-ollama
+        image: busybox:latest
+        command: ['sh', '-c', 'until nc -z {{ include "localgpt.fullname" . }}-ollama {{ .Values.ollama.service.port }}; do echo waiting for ollama; sleep 2; done;']
+      {{- end }}
+      containers:
+      - name: rag-api
+        image: {{ include "localgpt.image" .Values.ragApi.image }}
+        imagePullPolicy: {{ include "localgpt.imagePullPolicy" .Values.ragApi.image }}
+        ports:
+        - name: http
+          containerPort: 8001
+          protocol: TCP
+        env:
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "localgpt.fullname" . }}-config
+              key: OLLAMA_HOST
+        - name: NODE_ENV
+          value: {{ .Values.ragApi.env.NODE_ENV | quote }}
+        {{- range $key, $value := .Values.ragApi.env }}
+        {{- if and (ne $key "NODE_ENV") (ne $key "OLLAMA_HOST") }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /models
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /models
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        resources:
+          {{- toYaml .Values.ragApi.resources | nindent 10 }}
+        volumeMounts:
+        {{- if .Values.ragApi.persistence.lancedb.enabled }}
+        - name: lancedb
+          mountPath: /app/lancedb
+        {{- end }}
+        {{- if .Values.ragApi.persistence.indexStore.enabled }}
+        - name: index-store
+          mountPath: /app/index_store
+        {{- end }}
+        {{- if .Values.sharedUploads.enabled }}
+        - name: shared-uploads
+          mountPath: /app/shared_uploads
+        {{- end }}
+      volumes:
+      {{- if .Values.ragApi.persistence.lancedb.enabled }}
+      - name: lancedb
+        persistentVolumeClaim:
+          claimName: {{ include "localgpt.fullname" . }}-lancedb
+      {{- end }}
+      {{- if .Values.ragApi.persistence.indexStore.enabled }}
+      - name: index-store
+        persistentVolumeClaim:
+          claimName: {{ include "localgpt.fullname" . }}-index-store
+      {{- end }}
+      {{- if .Values.sharedUploads.enabled }}
+      - name: shared-uploads
+        persistentVolumeClaim:
+          claimName: {{ .Values.sharedUploads.existingClaim | default (printf "%s-shared-uploads" (include "localgpt.fullname" .)) }}
+      {{- end }}
+      {{- with .Values.ragApi.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ragApi.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.ragApi.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

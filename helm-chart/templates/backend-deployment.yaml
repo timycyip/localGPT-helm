@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "localgpt.fullname" . }}-backend
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "localgpt.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "localgpt.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+      - name: wait-for-rag-api
+        image: busybox:latest
+        command: ['sh', '-c', 'until nc -z {{ include "localgpt.fullname" . }}-rag-api {{ .Values.ragApi.service.port }}; do echo waiting for rag-api; sleep 2; done;']
+      containers:
+      - name: backend
+        image: {{ include "localgpt.image" .Values.backend.image }}
+        imagePullPolicy: {{ include "localgpt.imagePullPolicy" .Values.backend.image }}
+        ports:
+        - name: http
+          containerPort: 8000
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: {{ .Values.backend.env.NODE_ENV | quote }}
+        - name: RAG_API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "localgpt.fullname" . }}-config
+              key: RAG_API_URL
+        - name: OLLAMA_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: {{ include "localgpt.fullname" . }}-config
+              key: OLLAMA_HOST
+        {{- range $key, $value := .Values.backend.env }}
+        {{- if and (ne $key "NODE_ENV") (ne $key "RAG_API_URL") (ne $key "OLLAMA_HOST") }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: {{ .Values.healthCheck.initialDelaySeconds }}
+          periodSeconds: {{ .Values.healthCheck.periodSeconds }}
+          timeoutSeconds: {{ .Values.healthCheck.timeoutSeconds }}
+          failureThreshold: {{ .Values.healthCheck.failureThreshold }}
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+        volumeMounts:
+        {{- if .Values.backend.persistence.enabled }}
+        - name: backend-data
+          mountPath: /app/backend
+        {{- end }}
+        {{- if .Values.sharedUploads.enabled }}
+        - name: shared-uploads
+          mountPath: /app/shared_uploads
+        {{- end }}
+      volumes:
+      {{- if .Values.backend.persistence.enabled }}
+      - name: backend-data
+        persistentVolumeClaim:
+          claimName: {{ include "localgpt.fullname" . }}-backend
+      {{- end }}
+      {{- if .Values.sharedUploads.enabled }}
+      - name: shared-uploads
+        persistentVolumeClaim:
+          claimName: {{ .Values.sharedUploads.existingClaim | default (printf "%s-shared-uploads" (include "localgpt.fullname" .)) }}
+      {{- end }}
+      {{- with .Values.backend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.backend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

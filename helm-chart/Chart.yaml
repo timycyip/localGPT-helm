@@ -1,0 +1,17 @@
+apiVersion: v2
+name: localgpt
+description: A Helm chart for LocalGPT RAG system with optional Ollama support
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - rag
+  - llm
+  - ollama
+  - ai
+  - gpt
+maintainers:
+  - name: LocalGPT Team
+home: https://github.com/localgpt/localgpt
+sources:
+  - https://github.com/localgpt/localgpt

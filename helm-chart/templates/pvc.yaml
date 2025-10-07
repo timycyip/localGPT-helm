@@ -1,0 +1,129 @@
+{{- if and .Values.ollama.enabled .Values.ollama.persistence.enabled (not .Values.ollama.persistence.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "localgpt.fullname" . }}-ollama-data
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ollama
+spec:
+  accessModes:
+    - {{ .Values.ollama.persistence.accessMode }}
+  {{- if .Values.ollama.persistence.storageClass }}
+  {{- if (eq "-" .Values.ollama.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.ollama.persistence.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ollama.persistence.size }}
+{{- end }}
+
+{{- if and .Values.ragApi.persistence.lancedb.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "localgpt.fullname" . }}-lancedb
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-api
+spec:
+  accessModes:
+    - {{ .Values.ragApi.persistence.lancedb.accessMode }}
+  {{- if .Values.ragApi.persistence.lancedb.storageClass }}
+  {{- if (eq "-" .Values.ragApi.persistence.lancedb.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.ragApi.persistence.lancedb.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ragApi.persistence.lancedb.size }}
+{{- end }}
+
+{{- if and .Values.ragApi.persistence.indexStore.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "localgpt.fullname" . }}-index-store
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rag-api
+spec:
+  accessModes:
+    - {{ .Values.ragApi.persistence.indexStore.accessMode }}
+  {{- if .Values.ragApi.persistence.indexStore.storageClass }}
+  {{- if (eq "-" .Values.ragApi.persistence.indexStore.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.ragApi.persistence.indexStore.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.ragApi.persistence.indexStore.size }}
+{{- end }}
+
+{{- if and .Values.backend.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "localgpt.fullname" . }}-backend
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  accessModes:
+    - {{ .Values.backend.persistence.accessMode }}
+  {{- if .Values.backend.persistence.storageClass }}
+  {{- if (eq "-" .Values.backend.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.backend.persistence.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.size }}
+{{- end }}
+
+{{- if and .Values.sharedUploads.enabled (not .Values.sharedUploads.existingClaim) }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "localgpt.fullname" . }}-shared-uploads
+  labels:
+    {{- include "localgpt.labels" . | nindent 4 }}
+    app.kubernetes.io/component: shared
+spec:
+  accessModes:
+    - {{ .Values.sharedUploads.accessMode }}
+  {{- if .Values.sharedUploads.storageClass }}
+  {{- if (eq "-" .Values.sharedUploads.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.sharedUploads.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.sharedUploads.size }}
+{{- end }}
