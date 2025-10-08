@@ -96,6 +96,12 @@ git push origin main
 - Tags with `pr-<number>`
 - Does NOT push (build validation only)
 
+**✅ Scheduled builds (Bi-weekly)**
+- Runs automatically on the 1st and 15th of each month at 2 AM UTC
+- Rebuilds all images with latest base images and dependencies
+- Updates `latest` tag
+- Ensures images have latest security patches
+
 **✅ Manual trigger**
 - Go to Actions → "Build and Push Docker Images"
 - Click "Run workflow"
