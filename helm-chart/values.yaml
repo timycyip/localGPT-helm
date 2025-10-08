@@ -65,8 +65,8 @@ ragApi:
   replicaCount: 1
   
   image:
-    registry: ""
-    repository: localgpt/rag-api
+    registry: "ghcr.io"
+    repository: timycyip/localgpt-rag-api
     tag: "latest"
     pullPolicy: Always
   
@@ -107,8 +107,8 @@ backend:
   replicaCount: 1
   
   image:
-    registry: ""
-    repository: localgpt/backend
+    registry: "ghcr.io"
+    repository: timycyip/localgpt-backend
     tag: "latest"
     pullPolicy: Always
   
@@ -143,8 +143,8 @@ frontend:
   replicaCount: 1
   
   image:
-    registry: ""
-    repository: localgpt/frontend
+    registry: "ghcr.io"
+    repository: timycyip/localgpt-frontend
     tag: "latest"
     pullPolicy: Always
   
